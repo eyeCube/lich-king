@@ -1,0 +1,41 @@
+
+ideas for lich king game
+
+DO NOT encumber player based on what is being carried in inventory
+	give them a magic bag of holding that stores all that shit.
+	
+Stats and what they do:
+	speed
+		increases speed of movement
+	jump
+		a little bit of extra jump makes a huge change.
+			Should therefore become exponentially more difficult to acquire.
+		not likely to be altered very much during gameplay except by gear / spells
+			maybe you can only gain 2 jump (total of 3.5) at most through normal means, but with gear and spells you can achieve much higher like values of 5, 6, etc. Could go crazy like Morrowind w/ rare Icarian flight spell.
+	acceleration - not likely to be altered during gameplay
+	life max - obvious
+	mana max
+		mana is needed and is consumed when casting spells.
+	stamina max
+		stamina is needed to attack and cast spells and is consumed when doing so.
+		It is consumed when running, jumping, ...
+		Ratio of stamina : maximum affects your ability to do any task!
+		It regenerates over time rapidly, as a proportion of maximum (e.g. 20% / second)
+	strength
+		increases power of all physical attacks
+	wisdom
+		increases power of all spells
+	pow_fire, etc.
+		increases the power of fire (or w/e element) spells.
+	res_...
+		damage = damage * 100/resistance
+
+Enchanting
+	To get elemental damage on a weapon (called enchanting), you have to
+		expend Mana. This can be for a duration or quasi-permanent where you
+		sacrifice a portion of your max mana pool and give it to the weapon.
+		Of course you have to have the enchanting spell (fire enchant, etc.)
+	
+Leveling up:
+	
+	
