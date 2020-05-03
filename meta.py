@@ -14,6 +14,8 @@ class Symbol:
         Symbol.nextID += 1
     def __eq__(self, other):
         return self.ID==other.ID
+    def __hash__(self):
+        return self.ID
 # end class
 
     #-----------#
@@ -56,6 +58,15 @@ WP_STEELSWORD = Symbol()
 # spells
 SP_FLAMES = Symbol()
 SP_HEATWAVE = Symbol()
+
+    #---------#
+    # assets  #
+    #---------#
+
+ASSET_PLANE_SOLID = Symbol()
+ASSET_CORRIDOR_ARCHED_1_CORNER = Symbol()
+ASSET_CORRIDOR_ARCHED_1 = Symbol()
+ASSET_CORRIDOR_STAIRS_1 = Symbol()
 
 
 
