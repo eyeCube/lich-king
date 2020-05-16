@@ -336,12 +336,21 @@ class _Player:
             
             # get the highest Z from collisions w/ the downward ray
             highestZ = -99999
+            # also collect information about the ground type below us
+            floor_slipperiness = 0 # vertical friction (Z)
+            floor_friction = 0 # horizontal friction (X/Y)
+            floor_damage = 0
+            floor_damageType = 0
             for i in range(self.nodeGroundHandler.getNumEntries()):
                 entry = self.nodeGroundHandler.getEntry(i)
                 z = entry.getSurfacePoint(render).getZ()
                 # get properties of collision node's parent (damage, elemental, etc.)
-                tag=entry.getIntoNode().getParent(0).getPythonTag('notsolid')
-                if tag: continue
+                has = entry.getIntoNode().getParent(0).hasPythonTag('notsolid')
+                if has: continue
+                has = entry.getIntoNode().getParent(0).hasPythonTag('slippery')
+                if has:
+                    tag = entry.getIntoNode().getParent(0).getPythonTag('slippery')
+                    floor_slipperiness = tag
                 highestZ = z
             # end for
             # ground if we've collided with a floor
@@ -351,12 +360,9 @@ class _Player:
                 self.node.setZ(highestZ+.3) # set Z to floor height
                 self.moveZ = 0              # stop downward momentum
                 # move slower up slopes
-                # THIS WILL HAVE ISSUES WITH ACTUAL SLOPES --
-                # ONLY WORKS WITH STAIRS!!
-                # WE ACTUALLY NEED A SECONDARY COLLIDER / RAY TO CHECK
-                # IN FRONT OF THE PLAYER.
-                # DIFFERENCE IN SLOPE TOO SMALL OTHERWISE EXCEPT FOR STAIRS
-                # to do this: cast ray starting from same position but
+                # this is not ideal for non-stair-like slopes
+                #   to do slopes better:
+                # cast ray starting from same position but
                 # a little forward (using sin/cos) from origin in the dir.
                 # that the player's MOVING (not facing).
                 # Aim downward and check if the
@@ -364,6 +370,9 @@ class _Player:
                 # significant, and if so, reduce the speed.
                 # Cap at a certain value where the slope is too high to
                 # climb.
+                    #
+                # TODO: factor in floor_slipperiness
+                    #
                 speedMult = max(0.2, min(1,1-(zd*3)))
                 self.moveX *= speedMult
                 self.moveY *= speedMult
