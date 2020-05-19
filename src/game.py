@@ -7,6 +7,7 @@
 
 from meta import *
 import assets
+import levels
 
 from panda3d.core import *
 from direct.gui.OnscreenText import OnscreenText
@@ -46,6 +47,7 @@ classes:
 class Global:
     env = None
     game = None
+    editor = None
 
 class _Options:
     ''' global variables '''
@@ -54,7 +56,8 @@ class _Options:
 class _Game(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
-        
+
+        self.base = base
         base.disableMouse()
         base.accept("escape", sys.exit)   # controls to close the game / quit the game 
         
@@ -67,36 +70,46 @@ class _Game(ShowBase):
         base.cTrav = CollisionTraverser()
         base.cTrav.setRespectPrevTransform(True) # continuous collision checking
         base.pusher = CollisionHandlerPusher()
-        
-        # lighting
+    
+    def init_lighting(self):
         ambientLight = AmbientLight("ambient")
-        ambientLight.setColor(Vec4(0.2, 0.2, 0.2, 1))
+        ambientLight.setColor(Vec4(0.15, 0.15, 0.1, 1))
         self.ambientLight = render.attachNewNode(ambientLight)
-        render.setLight(self.ambientLight)
+        environment_layer().setLight(self.ambientLight)
         sun = DirectionalLight("sun")
+        sun.setColor(Vec4(1.5, 1.5, 1.5, 1))
         self.sun = render.attachNewNode(sun)
-        # Turn it around by 45 degrees, and tilt it down by 45 degrees
-        self.sun.setHpr(45, -45, 0)
-        render.setLight(self.sun)
-        render.setShaderAuto()
+        self.sun.setHpr(0, -45, 0) # aimed northward and down at 45 degrees (if north is up on the blender map from top-down view)
+        environment_layer().setLight(self.sun)
+        environment_layer().setShaderAuto()
+##        sun.setShadowCaster(True, 512, 512)
+            # scene cannot self shadow (?) -- need to divide scene into
+            # multiple different objects? Is this worth it? Well, we need
+            # to have shadows, right?
 # end class
 
 class _Environment:
     def __init__(self):
+        self.layer = NodePath("environment_layer")
+        self.layer.reparentTo(renderer())
         self.statics=[]
-        
-        # load level (TODO: move to sep. cls)
+
+    def load_level(self):
         # load assets
-        self.environment = game().loader.loadModel("Models/Sample/Environment/environment")
-        self.environment.setZ(0)
-        self.environment.reparentTo(game().render)
+##        self.environment = game().loader.loadModel("Models/Sample/Environment/environment")
+##        self.environment.setZ(0)
+##        self.environment.reparentTo(game().render)
         
-        self.add_static(assets.S_Plane())
-        self.add_static(assets.S_Corridor_Arched_1(0,0,0))
-        self.add_static(assets.S_Corridor_Arched_1(), 0, 2, 0)
-        self.add_static(assets.S_Corridor_Arched_1_Corner(), 0, 4, 0)
-        self.add_static(assets.S_Corridor_Stairs_1(), 2, 4, 0)
-        self.add_static(assets.S_Corridor_Stairs_1(), 4, 4, 1.5)
+        self.add_static(assets.Scene_1(0,0,-10))
+##        self.add_decor(assets.Decor_Fern_1())
+        
+##        self.add_static(assets.Static_Plane())
+##        self.add_static(assets.Static_Corridor_Arched_1(0,0,0))
+##        self.add_static(assets.Static_Corridor_Arched_1(), 0, 2, 0)
+##        self.add_static(assets.Static_Corridor_Arched_1_Corner(), 0, 4, 0)
+##        self.add_static(assets.Static_Corridor_Stairs_1(), 2, 4, 0)
+##        self.add_static(assets.Static_Corridor_Stairs_1(), 4, 4, 1.5)
+        
     def add_static(self, static, x=0, y=0, z=0):
         static.node.setPos(static.node, x,y,z)
         self.statics.append(static)
@@ -118,8 +131,8 @@ class _Player:
 # having different acceleration values for forward/back resulted
 #   in a weird glitch where we wouldn't move in the right direction.
     FRICTION_MULT = 0.9
-    GRAVITY = 4
-    TERMINALVELOCITY = 25
+    GRAVITY = GLOBAL_GRAVITY
+    TERMINALVELOCITY = 66 # IRL == 66 m/s
     RUN_SPEED_MULT = 1.5
     
     def __init__(self):
@@ -156,7 +169,7 @@ class _Player:
     def init_stats(self):
         self.scale = 0.05
         self.speed = 50     # start: 50, soft cap: ~150
-        self.jump = 2       # start: 2, soft cap: ~3.5
+        self.jump = 2.5       # start: 2, soft cap: ~3.5
         self.acceleration = 0.1 # max speed vector: 1
         self.lifeMax = 100      # maximum life points
         self.life = self.lifeMax
@@ -329,7 +342,7 @@ class _Player:
             self.head.setP(pitch)
         return task.cont
     # end def
-
+    
     def statusUpdate(self,task):
         if self.state==self.STATE_NORMAL:
             self.grounded=False
@@ -449,20 +462,36 @@ def play(): # start the main game
     Global.game = _Game()
     Global.player = _Player()
     Global.env = _Environment()
+    Global.env.load_level()
+    Global.editor = levels.LevelEditor()
+    Global.game.init_lighting()
     Global.game.run()
 # end def
-    
+
+# global data
+def environment_layer(): return Global.env.layer
+def env(): return Global.env
 def game(): return Global.game
+def editor(): return Global.editor
 def renderer(): return render
 def player(): return Global.player
+
+# global data interface
+def add_static_asset(gameObj): Global.env.add_static(gameObj)
+
+# maths
 def degtorad(degs): return math.pi*degs/180
 def radtodeg(degs): return 180*degs/math.pi
+def distance3d(x1,y1,z1,x2,y2,z2):
+    return math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
 
+# panda3d interface
 def addnode(obj, name):
     ''' add a node to the object obj named name '''
     obj.__dict__[name] = NodePath(name)
     obj.__dict__[name].reparentTo(obj.node)
 
+# engine -- gameplay
 def calculate_damage(strength, weaponDMG, defense):
     return max(1, round(0.0001 + (strength + weaponDMG) * (100/defense)))
 
