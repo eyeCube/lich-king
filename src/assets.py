@@ -12,8 +12,12 @@ import random
 from meta import *
 import game
 
-#TODO: test that models still load properly :p
-modelsDir = os.path.join(os.path.dirname(__file__),"..","Models")
+MODELSDIR = "../Models/" #os.path.join("..","Models","") #<-- not working for some ungodly reason
+##CONFIGFILE = os.path.join(os.path.dirname(__file__),"..","config","Config.prc")
+##loadPrcFile(CONFIGFILE)
+
+def fm(model:str) -> str: # format model
+    return "{}{}".format(MODELSDIR,model)
 
 class Asset:
     def __init__(self):
@@ -53,18 +57,19 @@ class GameObject: # nonsolid object
         # of the object.
         # Just reparent collisionSpheres for enemies, etc. onto the
         # enemy node. We can do this since we create those colliders
-        # manually. Give them the notsolid tag.
-    def __init__(self, model:str, tags={}, x=0, y=0, z=0):
+        # manually. Give them the notSolid tag.
+    def __init__(self, model:str, layer=None, tags={}, x=0, y=0, z=0):
+        layer = game.environment_layer() if layer is None else layer
         self.node=NodePath('node')
-        self.node.reparentTo(game.environment_layer())
+        self.node.reparentTo(layer)
         self.node.setPos(x,y,z)
         for tag,value in tags.items():
             self.node.setPythonTag(tag,value)
         
         # load assets
-        self.model = game.game().loader.loadModel(model)
-##        self.model.setZ(-1)
-        self.model.reparentTo(self.node)
+        if model:
+            self.model = game.game().loader.loadModel(model)
+            self.model.reparentTo(self.node)
 
     def interact(self, _type):
         pass
@@ -91,7 +96,28 @@ class GameSphere(GameObject): # nonsolid spherical object
     #----------#
 
 class Load_Trigger(GameObject):
-    pass
+    ID = ASSET_TRIGGER_LOAD
+    def __init__(self,model:str,zone:int,x=0,y=0,z=0):
+        GameObject.__init__(
+            self, None,
+            layer=game.object_layer(), x=x,y=y,z=z,
+            tags={'trigger':self.trigger_func}
+            )
+        self.zone = zone # ZONE_ const
+        
+        # load collision geometry
+        self.collision = game.game().loader.loadModel(model)
+##        self.model.setZ(-1)
+        self.collision.reparentTo(self.node)
+        self.collision.hide() # make collision geometry invisible!
+    def trigger_func(self):
+        game.unload_zone() # unload current area/room/scene/zone
+        game.load_zone(self.zone)
+# end class
+class Load_Trigger_Rect(Load_Trigger):
+    def __init__(self,x=0,y=0,z=0,rotz=0):
+        Load_Trigger.__init__(self,x=x,y=y,z=z)
+        self.node.setH(rotz)
 
     #--------#
     # static #
@@ -121,21 +147,21 @@ class Static_Corridor_Arched_1_Corner(Static, Asset):
     ID = ASSET_CORRIDOR_ARCHED_1_CORNER
     def __init__(self, x=0, y=0, z=0):
         Static.__init__(self,
-            "{}corridor_arch1_corner".format(modelsDir), x,y,z)
+            fm("corridor_arch1_corner"), x,y,z)
         Asset.__init__(self)
         
 class Static_Corridor_Arched_1(Static, Asset):
     ID = ASSET_CORRIDOR_ARCHED_1
     def __init__(self, x=0, y=0, z=0):
         Static.__init__(self,
-            "{}corridor_arch1".format(modelsDir), x,y,z,)
+            fm("corridor_arch1"), x,y,z,)
         Asset.__init__(self)
 
 class Static_Corridor_Stairs_1(Static, Asset):
     ID = ASSET_CORRIDOR_STAIRS_1
     def __init__(self, x=0, y=0, z=0):
         Static.__init__(self,
-            "{}corridor_stairs1".format(modelsDir), x,y,z)
+            fm("corridor_stairs1"), x,y,z)
         Asset.__init__(self)
 
     #-------#
@@ -145,10 +171,7 @@ class Static_Corridor_Stairs_1(Static, Asset):
 class Decor_Fern_1(GameObject, Asset):
     ID = ASSET_DECOR_FERN_1
     def __init__(self, x=0, y=0, z=0):
-        model=random.choice( (
-            "{}fern".format(modelsDir),
-            "{}fern2".format(modelsDir),
-            ) )
+        model=random.choice( (fm("fern"),fm("fern2"),) )
         GameObject.__init__(self,
             model, x=x,y=y,z=z)
         Asset.__init__(self)
@@ -159,11 +182,31 @@ class Decor_Fern_1(GameObject, Asset):
     #--------#
     
 class Scene_1(Static, Asset):
-    ID = ASSET_SCENE_START
+    ID = ASSET_SCENE_TEST_1
     def __init__(self, x=0, y=0, z=0):
         Static.__init__(
             self,
-            "{}scene1".format(modelsDir),
+            fm("scene1"),
+            x,y,z
+            )
+        Asset.__init__(self)
+    
+class Scene_Courtyard(Static, Asset):
+    ID = ASSET_SCENE_COURTYARD_1
+    def __init__(self, x=0, y=0, z=0):
+        Static.__init__(
+            self,
+            fm("lordland-courtyard"),
+            x,y,z
+            )
+        Asset.__init__(self)
+    
+class Scene_Courtyard_Rock(Static, Asset):
+    ID = ASSET_SCENE_COURTYARD_1
+    def __init__(self, x=0, y=0, z=0):
+        Static.__init__(
+            self,
+            fm("lordland-courtyard-rock"),
             x,y,z
             )
         Asset.__init__(self)

@@ -3,6 +3,22 @@ ideas for lich king game
 
 DO NOT encumber player based on what is being carried in inventory
 	give them a magic bag of holding that stores all that shit.
+	-- Actually, given the design where the player can easily collect
+		virtually infinite items like rusty iron swords from the ville, 
+		we should definitely encumber the player based on mass carried.
+		Maximum carry capacity could be based on strength stat.
+		Strength *2.5 units == carry capacity
+			units are encumberance-units, based on how encumbering an item is.
+			Called "cubic kilos"
+			An item with optimum ergonomic carrying ability has a cubic kilo
+			measurement equal to its mass in kilograms. Anything less than
+			optimal incurs an additional amount of cubic kilos
+				Basically encumberance*mass from Softly rolled into one stat
+		Carry capacity encompasses both carried and equipped gear.
+			Carried items, though, cost extra carry capacity compared to equipped
+			gear -- equipped gear adds 3/4 as much cubic kilos to your total
+				this is reduced further to 1/2 if the gear is fitted to you
+		
 	
 Stats and what they do:
 	speed
@@ -37,5 +53,24 @@ Enchanting
 		Of course you have to have the enchanting spell (fire enchant, etc.)
 	
 Leveling up:
+	you gain experience for every enemy you fight (or just kill for simplicity)
+	when you level up you gain maximum HP, stamina and mana
+	Could be like Morrowind -- only level up when you "meditate on what you've learned"
+		Also skill progression based -- e.g. level up sword skill -> general level up
+		Choose what to focus on -- HP, stamina, or mana
+	Progression other than generally leveling up involves leveling up weapon skills, magic skills, and strength/wisdom which are derived from the former, respectively. (Just like KF)
+	
+Save Points
+	can't just save anywhere
+	Also function as Warp Points
+		act as both receptacles for warp keys, as well as warp rings for casting warp (unlike KF) AND save points, all rolled into one object
+		can only be used when you have the correct colored wand for the key (exactly like KF)
+	
+Swimming:
+	like Minecraft e.g. you sink slowly, with very low terminal velocity, but you can go upward by holding the jump key.
+	idea: amount of swimming upward movement, as well as horiztonal movement speed while submerged is based on your strength(?) and encumberance ratio (if fully encumbered, you sink no matter what).
 	
 	
+Quests:
+
+	In the temple canton, there is an entryway into the sewer leading from the South side (right-side in top-down view) which leads further South into the main sewage system. Under the temple canton in the sewage there, there's a sign scrawled on the wall or such saying "I dropped the key" next to a grate in the floor, indicating the key is deeper underground (in the sewers). Going back South to the main sewer system you can venture deep underground to find the key. This also leads to an even deeper underground mine? Which is connected with the interior of the large castle walls.

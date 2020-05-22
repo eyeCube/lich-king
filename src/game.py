@@ -8,18 +8,16 @@
 from meta import *
 import assets
 import levels
+import glsl_shader
 
 from panda3d.core import *
 from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import AmbientLight
-from panda3d.core import DirectionalLight
-from panda3d.core import Vec4
 
 import sys
 import math
 
-''' imported keywords from panda3d.core:
+''' imported (& used) keywords from panda3d.core:
 
 global:
     render
@@ -37,6 +35,7 @@ classes:
     CollisionRay
     CollisionHandlerQueue
     Vec3
+    Vec4
     Point3
 '''
 
@@ -77,12 +76,14 @@ class _Game(ShowBase):
         self.ambientLight = render.attachNewNode(ambientLight)
         environment_layer().setLight(self.ambientLight)
         sun = DirectionalLight("sun")
+        sun.setShadowCaster(True, 1024, 1024) # higher -> higher res shadows
+        sun.getLens().setFilmSize(256,256) # lower -> crisper shadows
+        sun.getLens().setNearFar(0,9999)
         sun.setColor(Vec4(1.5, 1.5, 1.5, 1))
         self.sun = render.attachNewNode(sun)
-        self.sun.setHpr(0, -45, 0) # aimed northward and down at 45 degrees (if north is up on the blender map from top-down view)
+        self.sun.setHpr(0, -20, 0) # aimed northward and down at 45 degrees (if north is up on the blender map from top-down view)
         environment_layer().setLight(self.sun)
-        environment_layer().setShaderAuto()
-##        sun.setShadowCaster(True, 512, 512)
+        environment_layer().setShaderAuto() #(glsl_shader.glsl_shader())
             # scene cannot self shadow (?) -- need to divide scene into
             # multiple different objects? Is this worth it? Well, we need
             # to have shadows, right?
@@ -90,25 +91,29 @@ class _Game(ShowBase):
 
 class _Environment:
     def __init__(self):
-        self.layer = NodePath("environment_layer")
-        self.layer.reparentTo(renderer())
+        self.object_layer = NodePath("object_layer")
+        self.object_layer.reparentTo(renderer())
+        # 
+        self.visible_layer = NodePath("visible_layer")
+        self.visible_layer.reparentTo(self.object_layer)
         self.statics=[]
 
     def load_level(self):
         # load assets
-##        self.environment = game().loader.loadModel("Models/Sample/Environment/environment")
-##        self.environment.setZ(0)
-##        self.environment.reparentTo(game().render)
+        self.environment = game().loader.loadModel("../Models/Sample/Environment/environment")
+        self.environment.setZ(0)
+        self.environment.reparentTo(game().render)
+        self.add_static(assets.Static_Plane())
         
-        self.add_static(assets.Scene_1(0,0,-10))
+##        self.add_static(assets.Scene_Courtyard(0,0,-10))
+##        self.add_static(assets.Scene_Courtyard_Rock(0,0,-10))
 ##        self.add_decor(assets.Decor_Fern_1())
         
-##        self.add_static(assets.Static_Plane())
-##        self.add_static(assets.Static_Corridor_Arched_1(0,0,0))
-##        self.add_static(assets.Static_Corridor_Arched_1(), 0, 2, 0)
-##        self.add_static(assets.Static_Corridor_Arched_1_Corner(), 0, 4, 0)
-##        self.add_static(assets.Static_Corridor_Stairs_1(), 2, 4, 0)
-##        self.add_static(assets.Static_Corridor_Stairs_1(), 4, 4, 1.5)
+        self.add_static(assets.Static_Corridor_Arched_1(0,0,0))
+        self.add_static(assets.Static_Corridor_Arched_1(), 0, 2, 0)
+        self.add_static(assets.Static_Corridor_Arched_1_Corner(), 0, 4, 0)
+        self.add_static(assets.Static_Corridor_Stairs_1(), 2, 4, 0)
+        self.add_static(assets.Static_Corridor_Stairs_1(), 4, 4, 1.5)
         
     def add_static(self, static, x=0, y=0, z=0):
         static.node.setPos(static.node, x,y,z)
@@ -132,7 +137,9 @@ class _Player:
 #   in a weird glitch where we wouldn't move in the right direction.
     FRICTION_MULT = 0.9
     GRAVITY = GLOBAL_GRAVITY
+    GRAVITY_WATER = GLOBAL_GRAVITY_WATER
     TERMINALVELOCITY = 66 # IRL == 66 m/s
+    TERMINALVELOCITY_WATER = 1
     RUN_SPEED_MULT = 1.5
     
     def __init__(self):
@@ -162,14 +169,16 @@ class _Player:
         self.grounded = False
         self.walking = False
         self.walkingToggled = False     # this var improves player control by making the toggle run button flip the control of the Shift run key.
+        self.submerged = False
         self.prevX = -999
         self.prevY = -999
         self.prevZ = -999
     
     def init_stats(self):
-        self.scale = 0.05
-        self.speed = 50     # start: 50, soft cap: ~150
-        self.jump = 2.5       # start: 2, soft cap: ~3.5
+        self.scale = 1
+        self.cam_scale = 0.05
+        self.speed = 5    # start: 2.5, soft cap: ~5
+        self.jump = 4       # start: 2.5, soft cap: 4
         self.acceleration = 0.1 # max speed vector: 1
         self.lifeMax = 100      # maximum life points
         self.life = self.lifeMax
@@ -207,14 +216,13 @@ class _Player:
         self.node = NodePath('player')
         self.node.reparentTo(render)
         self.node.setPos(0,0,0.5)
-        # Set player scale to 1/20; this effects everything!
-        # Every unit needs to be scaled up 20x to be consistent with the world.
-        self.node.setScale(self.scale)
         self.body = NodePath('body')
         self.body.reparentTo(self.node)
+        self.body.setPos(self.node,0,0,1.33/self.scale)
         self.head = NodePath('head')
         self.head.reparentTo(self.body)
-        self.head.setPos(self.body,0,0,1.5/self.scale)
+        self.head.setPos(self.body,0,0,0.5/self.scale)
+        # TODO: adjust position of head/body/camera to anatomical proportions
     # end def
     
     def init_camera(self):
@@ -222,27 +230,29 @@ class _Player:
         pl =  base.cam.node().getLens()
         pl.setFov(_Options.FOV)
         base.cam.node().setLens(pl)
+            # set camera scale to a much smaller scale, to try and prevent
+            # the camera from poking through walls
+        base.camera.setScale(self.cam_scale)
         base.camera.reparentTo(self.head)
+        base.camera.setPos(self.head,0,0,0.1/self.scale)
             # is the camera centered in the sphere of collision? Need to move camera above and forward slightly.
     # end def
         
     def init_collisions(self):
         ''' create a collision solid and ray for the player '''
-        # IDEA: use two or more collisionSphere's in order to simulate
-        # different body parts: at least head/torso?
-
-        # head (TODO)
-        # torso (TODO)
+        # uses two collisionSpheres in order to simulate
+        #   different body parts: head and torso
         
         # pusher -- this collisionSphere keeps us out of walls.
         # THIS IS NOT THE COLLIDER FOR GETTING DAMAGED BY ENEMIES.
         cn = CollisionNode('cplayer')
-        cn.addSolid(CollisionSphere(0,0,1/self.scale,0.33/self.scale))#CollisionCapsule(0,0,-1,0,0,1,1))
+        cn.addSolid(CollisionSphere(0,0,1/self.scale,0.33/self.scale))
+        cn.setFromCollideMask(BitMask32.bit(0))
+        cn.setIntoCollideMask(BitMask32.allOff())
         solid = self.node.attachNewNode(cn)
         base.cTrav.addCollider(solid,base.pusher)
         base.pusher.addCollider(solid,self.node)
-        cn.setFromCollideMask(BitMask32.bit(0))
-        cn.setIntoCollideMask(BitMask32.allOff())
+        
         # downcast ray for floor collisions
         ray = CollisionRay()
         ray.setOrigin(0,0,1/self.scale)
@@ -254,6 +264,28 @@ class _Player:
         solid = self.node.attachNewNode(cn)
         self.nodeGroundHandler = CollisionHandlerQueue()
         base.cTrav.addCollider(solid, self.nodeGroundHandler)
+
+        # head - collider for taking damage
+        cn = CollisionNode('cplayerHead')
+        self.col_head = NodePath(cn)
+        self.col_head.reparentTo(self.head)
+        cn.addSolid(CollisionSphere(0,0,0,0.1/self.scale))
+        cn.setFromCollideMask(BitMask32.bit(0)) # play with these
+        cn.setIntoCollideMask(BitMask32.allOff())
+        solid = self.node.attachNewNode(cn)
+        self.nodeHeadHandler = CollisionHandlerQueue()
+        base.cTrav.addCollider(solid, self.nodeHeadHandler)
+        
+        # torso - collider for taking damage
+        cn = CollisionNode('cplayerBody')
+        self.col_body = NodePath(cn)
+        self.col_body.reparentTo(self.body)
+        cn.addSolid(CollisionSphere(0,0,0,0.25/self.scale))
+        cn.setFromCollideMask(BitMask32.bit(0)) # play with these
+        cn.setIntoCollideMask(BitMask32.allOff())
+        solid = self.node.attachNewNode(cn)
+        self.nodeBodyHandler = CollisionHandlerQueue()
+        base.cTrav.addCollider(solid, self.nodeBodyHandler)
     # end def
         
     def init_controls(self):
@@ -322,9 +354,12 @@ class _Player:
         self.moveY = max(-1, min(1, ys))
     def move(self, value, angle_mod):
         ''' alter X,Y movement speeds by the value and angle given '''
+            # This method of moving allows omnidirectional FPS movement
+            # with acceleration / friction that is consistent & intuitive.
+            # It uses trigonometry to figure out the X & Y acceleration.
         spin = degtorad(self.head.getH()+angle_mod)
-        xr = -value*math.sin(spin) # make it relative from the body
-        yr = value*math.cos(spin)  # to the world using trigonometry
+        xr = -value*math.sin(spin) # make it relative from the body ...
+        yr = value*math.cos(spin)  # ... to the world using trig.
         self.move_set(self.moveX + xr, self.moveY + yr)
     def move_fb(self, value):
         self.move(value, 0)
@@ -346,59 +381,99 @@ class _Player:
     def statusUpdate(self,task):
         if self.state==self.STATE_NORMAL:
             self.grounded=False
-            
-            # get the highest Z from collisions w/ the downward ray
-            highestZ = -99999
-            # also collect information about the ground type below us
-            floor_slipperiness = 0 # vertical friction (Z)
-            floor_friction = 0 # horizontal friction (X/Y)
-            floor_damage = 0
-            floor_damageType = 0
-            for i in range(self.nodeGroundHandler.getNumEntries()):
-                entry = self.nodeGroundHandler.getEntry(i)
-                z = entry.getSurfacePoint(render).getZ()
-                # get properties of collision node's parent (damage, elemental, etc.)
-                has = entry.getIntoNode().getParent(0).hasPythonTag('notsolid')
-                if has: continue
-                has = entry.getIntoNode().getParent(0).hasPythonTag('slippery')
-                if has:
-                    tag = entry.getIntoNode().getParent(0).getPythonTag('slippery')
-                    floor_slipperiness = tag
-                highestZ = z
-            # end for
-            # ground if we've collided with a floor
-            zd = highestZ - (self.node.getZ()-.3)
-            if zd > 0:
-                self.grounded=True          # we're on solid ground
-                self.node.setZ(highestZ+.3) # set Z to floor height
-                self.moveZ = 0              # stop downward momentum
-                # move slower up slopes
-                # this is not ideal for non-stair-like slopes
-                #   to do slopes better:
-                # cast ray starting from same position but
-                # a little forward (using sin/cos) from origin in the dir.
-                # that the player's MOVING (not facing).
-                # Aim downward and check if the
-                # DIFFERENCE BETWEEN the Z values of the two rays is
-                # significant, and if so, reduce the speed.
-                # Cap at a certain value where the slope is too high to
-                # climb.
-                    #
-                # TODO: factor in floor_slipperiness
-                    #
-                speedMult = max(0.2, min(1,1-(zd*3)))
-                self.moveX *= speedMult
-                self.moveY *= speedMult
-                #
-            # end if
-            
-            if self.moveZ <= -3: # do not allow bouncing from great heights
-                self.readyToJump = False
 
-            # get collisions from body colliders (TODO)
+            # get collisions from body colliders
+            self.process_collider_raycast_1()
+            self.process_collider_body()
+            self.process_collider_head()
             # 
                 
         return task.cont
+    # end def
+    
+    def process_collision_body(self, entry, damage_mx):
+        # get properties of collision node's parent
+        parn = entry.getIntoNode().getParent(0)
+        damage = get_tag(parn, 'damage', default=0)
+        damageType = get_tag(parn, 'damageType', default=0)
+        if damage:
+            damage *= damage_mx
+            self.take_damage(damage, damageType)
+            
+    def process_collider_head(self):
+        ''' head collider '''
+        for entry in self.nodeHeadHandler.getEntries():
+            self.process_collision_body(entry, 2)
+            
+    def process_collider_body(self):
+        ''' torso collider '''
+        for entry in self.nodeBodyHandler.getEntries():
+            self.process_collision_body(entry, 1)
+            
+    def process_collider_raycast_1(self):
+        ''' floor detection '''
+        # get the highest Z from collisions w/ the downward ray
+        highestZ = -99999
+        # also collect information about the ground type below us
+        slipperiness = 0 # vertical friction (Z) (slope climbing)
+        friction = 0 # horizontal friction (X/Y)
+        damage = 0
+        damageType = 0
+        fallDamage_mx = 1 # fall damage multiplier from landing on this terrain
+        speed_mx = 1 # multiplier for movement speed (trepedatious or difficult terrain, slow terrain e.g. sand, etc.)
+        jump_mx = 1 # " for jump height
+        for entry in self.nodeGroundHandler.getEntries():
+            z = entry.getSurfacePoint(render).getZ()
+            highestZ = z
+            # get properties of collision node's parent
+            parn = entry.getIntoNode().getParent(0)
+            if get_tag(parn, 'notSolid'): continue
+            damage = get_tag(parn, 'damage', default=damage)
+            damageType = get_tag(parn, 'damageType', default=damageType)
+            slipperiness = get_tag(parn, 'slippery', default=slipperiness)
+            friction = get_tag(parn, 'friction', default=friction)
+            fallDamage_mx = get_tag(parn, 'fallDamage', default=fallDamage_mx)
+            speed_mx = get_tag(parn, 'alterSpeed', default=speed_mx)
+            jump_mx = get_tag(parn, 'alterJump', default=jump_mx)
+            # trigger zone
+                # load zones, etc.
+                    # to do load zones, create a function that
+                    # unloads the previous zone (kept track of
+                    # by global var) and then loads each object
+                    # and model for the new zone and activates
+                    # them as necessary.
+                # NOTE: these are triggered every frame of contact
+            trigger = get_tag(parn, 'trigger')
+            if trigger: trigger()
+        # end for
+        # ground if we've collided with a floor
+        zd = highestZ - (self.node.getZ()-.3)
+        if zd > 0:
+            self.grounded=True          # we're on solid ground
+            self.node.setZ(highestZ+.3) # set Z to floor height
+            self.moveZ = 0              # stop downward momentum
+            # move slower up slopes
+            # this is not ideal for non-stair-like slopes
+            #   to do slopes better:
+            # cast ray starting from same position but
+            # a little forward (using sin/cos) from origin in the dir.
+            # that the player's MOVING (not facing).
+            # Aim downward and check if the
+            # DIFFERENCE BETWEEN the Z values of the two rays is
+            # significant, and if so, reduce the speed.
+            # Cap at a certain value where the slope is too high to
+            # climb.
+                #
+            # TODO: factor in slipperiness
+                #
+            speedMult = max(0.2, min(1,1-(zd*3)))
+            self.moveX *= speedMult
+            self.moveY *= speedMult
+            #
+        # end if
+        
+        if self.moveZ <= -3: # do not allow bouncing from great heights
+            self.readyToJump = False
     # end def
 
     def keyUpdate(self,task):
@@ -420,8 +495,13 @@ class _Player:
             self.moveX = self.moveX*self.FRICTION_MULT
             self.moveY = self.moveY*self.FRICTION_MULT
 ##            else:
-            self.moveZ = max(-self.TERMINALVELOCITY,
-                             self.moveZ - self.GRAVITY*globalClock.getDt())
+            if self.submerged:
+                grav = self.GRAVITY_WATER
+                tv = self.TERMINALVELOCITY_WATER
+            else:
+                grav = self.GRAVITY
+                tv = self.TERMINALVELOCITY
+            self.moveZ = max(-tv, self.moveZ - grav*globalClock.getDt())
             
         return task.cont
     
@@ -468,8 +548,14 @@ def play(): # start the main game
     Global.game.run()
 # end def
 
+def get_tag(node, tag, default=None):
+    if node.hasPythonTag(tag):
+        return node.getPythonTag(tag)
+    return default
+
 # global data
-def environment_layer(): return Global.env.layer
+def object_layer(): return Global.env.object_layer
+def environment_layer(): return Global.env.visible_layer
 def env(): return Global.env
 def game(): return Global.game
 def editor(): return Global.editor

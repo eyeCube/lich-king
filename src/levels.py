@@ -20,10 +20,13 @@ class LevelLoader:
                 self.parse(line)
     def parse(self, line):
         try:
-            asset = int(line[:3]
-            x = int(line[3:6]
-            y = int(line[6:9]
-            z = int(line[9:12]
+            asset = int(line[:3])
+            x = int(line[3:6])
+            y = int(line[6:9])
+            z = int(line[9:12])
         except Exception as e:
             print("Error {e}: failed to parse level {lv}.".format(
                 lv=self.level,e=e))
+
+class LevelEditor:
+    pass
