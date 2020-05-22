@@ -170,16 +170,19 @@ class _Player:
         self.walking = False
         self.walkingToggled = False     # this var improves player control by making the toggle run button flip the control of the Shift run key.
         self.submerged = False
-        self.prevX = -999
-        self.prevY = -999
-        self.prevZ = -999
+##        self.prevX = -999 # why these values? What is this?
+##        self.prevY = -999
+##        self.prevZ = -999
     
     def init_stats(self):
         self.scale = 1
         self.cam_scale = 0.05
-        self.speed = 5    # start: 2.5, soft cap: ~5
-        self.jump = 4       # start: 2.5, soft cap: 4
-        self.acceleration = 0.1 # max speed vector: 1
+        self.speed = 2.5    # 2.5 - ~5
+        self.jump = 2.5     # 2.5 - 4
+        self.swim = 0.25    # 0.25 - 0.5
+        self.climb = 1      # ability to walk up slopes
+        self.climb_speed_penalty = 3
+        self.acceleration = 0.1 # as proportion of maximum speed
         self.lifeMax = 100      # maximum life points
         self.life = self.lifeMax
         self.manaMax = 10       # maximum magic points
@@ -189,7 +192,7 @@ class _Player:
         self.strength = 12      # physical power
         self.wisdom = 12        # magical power
         self.armor = 0          # physical damage reduction (linear)
-        self.res_slash = 100    # resistances - % damage reduction
+        self.res_slash = 100    # resistances
         self.res_stab = 100
         self.res_crush = 100
         self.res_fire = 100
@@ -201,6 +204,7 @@ class _Player:
         self.pow_fire = 0
         self.pow_elec = 0
         self.pow_water = 0
+        self.skills = {} # { SKILL const : experience=int }
 
     def init_control(self):
         # controls: player input
@@ -447,10 +451,11 @@ class _Player:
             if trigger: trigger()
         # end for
         # ground if we've collided with a floor
-        zd = highestZ - (self.node.getZ()-.3)
+        fudge=0.15
+        zd = highestZ - (self.node.getZ()-fudge)
         if zd > 0:
             self.grounded=True          # we're on solid ground
-            self.node.setZ(highestZ+.3) # set Z to floor height
+            self.node.setZ(highestZ+fudge) # set Z to floor height
             self.moveZ = 0              # stop downward momentum
             # move slower up slopes
             # this is not ideal for non-stair-like slopes
@@ -465,8 +470,12 @@ class _Player:
             # climb.
                 #
             # TODO: factor in slipperiness
+            # TODO: factor in slope of the terrain (how to??) (and self.climb)
+                    # maybe slope will be factored in sufficiently by
+                    # factoring in an extra raycast (above). Try that first!
                 #
-            speedMult = max(0.2, min(1,1-(zd*3)))
+                
+            speedMult = max(0.2, min(1,1-(zd*self.climb_speed_penalty)))
             self.moveX *= speedMult
             self.moveY *= speedMult
             #
@@ -577,9 +586,28 @@ def addnode(obj, name):
     obj.__dict__[name] = NodePath(name)
     obj.__dict__[name].reparentTo(obj.node)
 
-# engine -- gameplay
+    #--------------------#
+    # engine -- gameplay #
+    #--------------------#
+    
+# combat
 def calculate_damage(strength, weaponDMG, defense):
     return max(1, round(0.0001 + (strength + weaponDMG) * (100/defense)))
+# experience
+def get_skill_xp_multiplier(skill):
+    return SKILLS[skill][1]
+def get_skill_xp(skill):
+    return player().skills.get(skill, 0)
+def get_skill_lv(skill):
+    xp = get_skill_xp(skill)
+    xpmod = get_skill_xp_multiplier(skill)
+    if xp >= LEVEL_4 * xpmod:
+        return 4
+    if xp >= LEVEL_3 * xpmod:
+        return 3
+    if xp >= LEVEL_2 * xpmod:
+        return 2
+    return 1 # player starts off as no chump, w/ rudimentary skill in all areas of combat
 
 
 

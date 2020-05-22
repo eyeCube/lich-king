@@ -15,22 +15,26 @@ files = [f for f in os.listdir(curdir) if os.path.isfile(os.path.join(curdir,f))
 if __name__=="__main__":
     for file in files:
         tagNextLine = False
-        if "_collision.egg" in file:
+        if (".egg"==file[-4:] and "_collision" in file):
             filedir = os.path.join(curdir,file)
+            needToWrite=False
             with open(filedir, "r") as f:
                 newstring=""
                 for line in f.readlines():
                     if tagNextLine:
+                        tagNextLine = False
                         if "collide" in line.lower():
                             continue
                         newstring += '''    <Collide> { Polyset keep descend }
 '''
-                        tagNextLine = False
+                        needToWrite=True
                     if "group" in line.lower():
                         tagNextLine = True
                     newstring+=line
-            with open(filedir, "w+") as f:
-                f.write(newstring)
+            if needToWrite:
+                with open(filedir, "w+") as f:
+                    f.write(newstring)
+                print("Wrote to file '{}'.".format(filedir))
             # end with
     # end for
 #
